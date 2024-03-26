@@ -14,7 +14,6 @@
 
 using namespace llvm;
 
-
 bool runOnBasicBlock(BasicBlock &B) {
 	for (auto &inst : B){
 		BinaryOperator *mul = dyn_cast<BinaryOperator>(&inst);

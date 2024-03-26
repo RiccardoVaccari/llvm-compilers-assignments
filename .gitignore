@@ -33,5 +33,5 @@
 
 *
 
-!llvm/**/LocalOpts.cpp
-!Localopts.h
+!**/LocalOpts.cpp
+!**/Localopts.h
