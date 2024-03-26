@@ -1,4 +1,4 @@
-Il primo assignment consiste nel implementare 3 passi LLVM che realizzano le 3 ottimizzazioni locali:
+Il primo assignment consiste nell'implementare 3 passi LLVM che realizzano le 3 ottimizzazioni locali:
 1. **Algebraic Identity**
 - $` x + 0 = 0 + x = x `$
 - $` x \times 1 = 1 \times x = x `$ 
