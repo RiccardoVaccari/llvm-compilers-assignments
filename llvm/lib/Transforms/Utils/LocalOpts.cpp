@@ -14,10 +14,11 @@ using namespace llvm;
 
 enum opType{
     MUL,
-    ADD
+    ADD,
+    DIV
 };
 
-bool strenghtReduction(Instruction &inst){
+bool strenghtReduction(Instruction &inst, opType opT){
   int pos = 0;
 
   for (auto operand = inst.op_begin(); operand != inst.op_end(); operand++, pos++)
@@ -29,7 +30,23 @@ bool strenghtReduction(Instruction &inst){
       if(value.isPowerOf2())
       {
         int shift_count = C->getValue().exactLogBase2();
-        Instruction *shiftInst = BinaryOperator::Create(BinaryOperator::Shl, inst.getOperand(!pos), ConstantInt::get(C->getType(), shift_count));
+
+        Instruction *shiftInst = nullptr;
+
+        if(opT == MUL)
+            shiftInst = BinaryOperator::Create(
+              BinaryOperator::Shl, 
+              inst.getOperand(!pos), 
+              ConstantInt::get(C->getType(), shift_count)
+              );        
+        else
+            shiftInst = BinaryOperator::Create(
+              BinaryOperator::LShr, 
+              inst.getOperand(!pos), 
+              ConstantInt::get(C->getType(), shift_count)
+              );    
+
+
         shiftInst->insertAfter(&inst);
         inst.replaceAllUsesWith(shiftInst);
         outs() <<"Instruction:\n\t"<< inst << "\nReplaced with:\n\t" << *shiftInst << "\n\n";
@@ -78,11 +95,15 @@ bool runOnBasicBlock(BasicBlock &B) {
     switch(op->getOpcode()){
       case BinaryOperator::Mul:
         if(!algebraicIdentity(inst, MUL))
-          strenghtReduction(inst);
+          strenghtReduction(inst,MUL);
 
         break;
       case (BinaryOperator::Add):
         algebraicIdentity(inst,ADD);
+        break;
+
+      case (BinaryOperator::SDiv):
+        strenghtReduction(inst,DIV);
         break;
 
       default:
