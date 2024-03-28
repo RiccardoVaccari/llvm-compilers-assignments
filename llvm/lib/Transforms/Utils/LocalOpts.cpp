@@ -12,29 +12,90 @@
 
 using namespace llvm;
 
-bool runOnBasicBlock(BasicBlock &B) {
-	for (auto &inst : B){
-		BinaryOperator *mul = dyn_cast<BinaryOperator>(&inst);
-		if (not mul or mul->getOpcode() != BinaryOperator::Mul)
-			continue;
-		
-		int pos = 0;
-		for (auto op = inst.op_begin(); op != inst.op_end(); op++, pos++){
-      	ConstantInt *C = dyn_cast<ConstantInt>(op);
-			if (C) {
-				APInt value = C->getValue();
-				if(value.isPowerOf2()){
-					int shift_count = C->getValue().exactLogBase2();
-					Instruction *shiftInst = BinaryOperator::Create(BinaryOperator::Shl, inst.getOperand(!pos), ConstantInt::get(C->getType(), shift_count));
-    			shiftInst->insertAfter(&inst);
-    			inst.replaceAllUsesWith(shiftInst);
-          outs() <<"Instruction:\n\t"<< inst << "\nReplaced with:\n\t" << *shiftInst << "\n";
-				}
-			}
-		}
-	}
-    return true;
+enum opType{
+    MUL,
+    ADD
+};
+
+bool strenghtReduction(Instruction &inst){
+  int pos = 0;
+
+  for (auto operand = inst.op_begin(); operand != inst.op_end(); operand++, pos++)
+  {
+    ConstantInt *C = dyn_cast<ConstantInt>(operand);
+    if (C) 
+    {
+      APInt value = C->getValue();
+      if(value.isPowerOf2())
+      {
+        int shift_count = C->getValue().exactLogBase2();
+        Instruction *shiftInst = BinaryOperator::Create(BinaryOperator::Shl, inst.getOperand(!pos), ConstantInt::get(C->getType(), shift_count));
+        shiftInst->insertAfter(&inst);
+        inst.replaceAllUsesWith(shiftInst);
+        outs() <<"Instruction:\n\t"<< inst << "\nReplaced with:\n\t" << *shiftInst << "\n\n";
+        return true;
+      }
+    }
   }
+  return false;
+}
+
+bool algebraicIdentity(Instruction &inst, opType opT){
+  int pos = 0;
+  for (auto operand = inst.op_begin(); operand != inst.op_end(); operand++, pos++)
+  {
+    ConstantInt *C = dyn_cast<ConstantInt>(operand);
+    if (C) 
+    {
+      APInt value = C->getValue();
+      
+      if((value.isZero() && opT == ADD) || (value.isOne() && opT == MUL))
+      {
+        inst.replaceAllUsesWith(inst.getOperand(!pos));
+        outs() <<"Instruction:\n\t"<< inst << "\nhas a "<< value << " in "<<pos<<" position"<<"\n\n";
+        return true;
+      }
+    }
+  }
+  return false;
+
+}
+
+
+
+
+bool runOnBasicBlock(BasicBlock &B) {
+
+
+	for (auto &inst : B)
+  {
+
+    BinaryOperator *op = dyn_cast<BinaryOperator>(&inst);
+
+    if(not op)
+      continue;   
+    
+    switch(op->getOpcode()){
+      case BinaryOperator::Mul:
+        if(!algebraicIdentity(inst, MUL))
+          strenghtReduction(inst);
+
+        break;
+      case (BinaryOperator::Add):
+        algebraicIdentity(inst,ADD);
+        break;
+
+      default:
+
+        break;
+    } 
+    
+    
+    
+     
+	 }
+  return true;
+}
 
 
 bool runOnFunction(Function &F) {

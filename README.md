@@ -3,9 +3,9 @@ Il primo assignment consiste nell'implementare 3 passi LLVM che realizzano le 3 
 - $` x + 0 = 0 + x = x `$
 - $` x \times 1 = 1 \times x = x `$ 
 
-3. **Strength Reduction**
+2. **Strength Reduction**
 - $` 15 \times x = x \times 15 \Rightarrow (x \ll 4) - x `$ 
 - $` y = x / 8 \Rightarrow y = x \gg 3 `$ 
 
-4. **Multi-Instruction Optimization** 
+3. **Multi-Instruction Optimization** 
 - $` a = b + 1, c = a - 1 \Rightarrow a = b + 1, c = b `$
