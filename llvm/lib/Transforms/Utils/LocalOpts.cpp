@@ -20,15 +20,15 @@ bool runOnBasicBlock(BasicBlock &B) {
 		
 		int pos = 0;
 		for (auto op = inst.op_begin(); op != inst.op_end(); op++, pos++){
-      			ConstantInt *C = dyn_cast<ConstantInt>(op);
+      	ConstantInt *C = dyn_cast<ConstantInt>(op);
 			if (C) {
 				APInt value = C->getValue();
 				if(value.isPowerOf2()){
 					int shift_count = C->getValue().exactLogBase2();
-					Instruction *shiftInst = BinaryOperator::Create(BinaryOperator::Shl, inst.getOperand(pos & 1), ConstantInt::get(C->getType(), shift_count));
-
-    					shiftInst->insertAfter(&inst);
-    					inst.replaceAllUsesWith(shiftInst);
+					Instruction *shiftInst = BinaryOperator::Create(BinaryOperator::Shl, inst.getOperand(!pos), ConstantInt::get(C->getType(), shift_count));
+    			shiftInst->insertAfter(&inst);
+    			inst.replaceAllUsesWith(shiftInst);
+          outs() <<"Instruction:\n\t"<< inst << "\nReplaced with:\n\t" << *shiftInst << "\n";
 				}
 			}
 		}
