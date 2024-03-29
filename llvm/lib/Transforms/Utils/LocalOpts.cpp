@@ -12,7 +12,7 @@
 
 using namespace llvm;
 
-enum opType { MUL, ADD, DIV };
+enum opType { MUL, ADD, DIV, SUB };
 
 bool strenghtReduction(Instruction &inst, opType opT) {
   int pos = 0;
@@ -112,9 +112,47 @@ bool algebraicIdentity(Instruction &inst, opType opT) {
   return false;
 }
 
+bool multiInstOpt(Instruction &inst, opType opT){
+  int pos = 0;
+
+  for (auto operandUser = inst.op_begin(); operandUser != inst.op_end(); operandUser++, pos++){
+    
+    ConstantInt *CUser = dyn_cast<ConstantInt>(operandUser);
+    
+    if (CUser) {
+      
+      APInt valueToFind = CUser->getValue();
+      Instruction::BinaryOps opToFind;
+
+      if(opT == SUB)
+        opToFind = Instruction::Add;
+      else
+        opToFind = Instruction::Sub;
+
+      for (auto Iter = inst.user_begin(); Iter != inst.user_end(); ++Iter){ 
+        
+        User *instUser = *Iter;
+        BinaryOperator *opUsee = dyn_cast<BinaryOperator>(instUser);
+        
+        if(not opUsee)
+          continue;
+
+        for(auto operandUsee = instUser->op_begin(); operandUsee != instUser->op_end(); operandUsee++){
+            ConstantInt *CUsee = dyn_cast<ConstantInt>(operandUsee);
+            if (CUsee && opUsee->getOpcode() == opToFind && CUsee->getValue() == valueToFind){
+    
+               outs() << "Multi-Instruction Optimization\n\t"
+                      << inst << " and " << *instUser << "\n ";
+               instUser->replaceAllUsesWith(inst.getOperand(!pos));
+               return true;
+            }
+        }
+      }
+    }
+  }
+}
+
 bool runOnBasicBlock(BasicBlock &B) {
-
-
   for (auto &inst : B) {
 
     BinaryOperator *op = dyn_cast<BinaryOperator>(&inst);
@@ -128,7 +166,12 @@ bool runOnBasicBlock(BasicBlock &B) {
           advStrenghtReduction(inst);
         break;
       case (BinaryOperator::Add):
-        algebraicIdentity(inst, ADD);
+        if(!algebraicIdentity(inst, ADD))
+          multiInstOpt(inst, ADD);
+        break;
+
+      case (BinaryOperator::Sub):
+        multiInstOpt(inst, SUB);
         break;
 
       case (BinaryOperator::UDiv):
