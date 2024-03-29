@@ -7,49 +7,39 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Transforms/Utils/LocalOpts.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/IR/InstrTypes.h"
+#include "llvm/IR/Instructions.h"
 
 using namespace llvm;
 
-enum opType{
-    MUL,
-    ADD,
-    DIV
-};
+enum opType { MUL, ADD, DIV };
 
-bool strenghtReduction(Instruction &inst, opType opT){
+bool strenghtReduction(Instruction &inst, opType opT) {
   int pos = 0;
 
-  for (auto operand = inst.op_begin(); operand != inst.op_end(); operand++, pos++)
-  {
+  for (auto operand = inst.op_begin(); operand != inst.op_end();
+       operand++, pos++) {
     ConstantInt *C = dyn_cast<ConstantInt>(operand);
-    if (C) 
-    {
+    if (C) {
       APInt value = C->getValue();
-      if(value.isPowerOf2())
-      {
+      if (value.isPowerOf2()) {
         int shift_count = C->getValue().exactLogBase2();
 
-        Instruction *shiftInst = nullptr;
+        Instruction::BinaryOps shiftT;
 
-        if(opT == MUL)
-            shiftInst = BinaryOperator::Create(
-              BinaryOperator::Shl, 
-              inst.getOperand(!pos), 
-              ConstantInt::get(C->getType(), shift_count)
-              );        
+        if (opT == MUL)
+          shiftT = Instruction::Shl;
         else
-            shiftInst = BinaryOperator::Create(
-              BinaryOperator::LShr, 
-              inst.getOperand(!pos), 
-              ConstantInt::get(C->getType(), shift_count)
-              );    
+          shiftT = Instruction::LShr;
 
+        Instruction *shiftInst =
+            BinaryOperator::Create(shiftT, inst.getOperand(!pos),
+                                   ConstantInt::get(C->getType(), shift_count));
 
         shiftInst->insertAfter(&inst);
         inst.replaceAllUsesWith(shiftInst);
-        outs() <<"Instruction:\n\t"<< inst << "\nReplaced with:\n\t" << *shiftInst << "\n\n";
+        outs() << "Strength Reduction\n\tInstruction:\n\t\t" << inst << "\n\tReplaced with:\n\t\t"
+               << *shiftInst << "\n\n";
         return true;
       }
     }
@@ -57,67 +47,102 @@ bool strenghtReduction(Instruction &inst, opType opT){
   return false;
 }
 
-bool algebraicIdentity(Instruction &inst, opType opT){
+bool advStrenghtReduction(Instruction &inst){
   int pos = 0;
-  for (auto operand = inst.op_begin(); operand != inst.op_end(); operand++, pos++)
-  {
+
+  for (auto operand = inst.op_begin(); operand != inst.op_end();
+       operand++, pos++) {
     ConstantInt *C = dyn_cast<ConstantInt>(operand);
-    if (C) 
-    {
+    if (C) {
       APInt value = C->getValue();
+      /*
+      x * 15 = 15 * x = (x << 4) - x
+      x * 17 = 17 * x = (x << 4) + x
+      */
+      Instruction::BinaryOps sumType;
+      int shift_count = 0;
       
-      if((value.isZero() && opT == ADD) || (value.isOne() && opT == MUL))
-      {
+      if ((value+1).isPowerOf2()) {
+        shift_count = (value+1).exactLogBase2();
+        sumType = Instruction::Sub;
+      }else if ((value-1).isPowerOf2()){
+        shift_count = (value-1).exactLogBase2();
+        sumType = Instruction::Add;
+      }
+      else
+        continue;
+
+      Instruction *shiftInst =
+            BinaryOperator::Create(BinaryOperator::Shl, inst.getOperand(!pos),
+                                   ConstantInt::get(C->getType(), shift_count));
+
+      Instruction *sumInst = 
+            BinaryOperator::Create(sumType, inst.getOperand(!pos),
+                                   shiftInst);                    
+      
+      shiftInst->insertAfter(&inst);
+      sumInst->insertAfter(shiftInst);
+      inst.replaceAllUsesWith(sumInst);
+
+        outs() << "Advanced Strength Reduction\n\tInstruction:\n\t\t" << inst << "\n\tReplaced with:\n\t\t"
+               << *shiftInst << " and " << *sumInst << "\n\n";
+      return true;
+    }
+  }
+  return false;
+}
+
+bool algebraicIdentity(Instruction &inst, opType opT) {
+  int pos = 0;
+  for (auto operand = inst.op_begin(); operand != inst.op_end();
+       operand++, pos++) {
+    ConstantInt *C = dyn_cast<ConstantInt>(operand);
+    if (C) {
+      APInt value = C->getValue();
+
+      if ((value.isZero() && opT == ADD) || (value.isOne() && opT == MUL)) {
         inst.replaceAllUsesWith(inst.getOperand(!pos));
-        outs() <<"Instruction:\n\t"<< inst << "\nhas a "<< value << " in "<<pos<<" position"<<"\n\n";
+        outs() << "Algebraic Identity\n\tInstruction:\n\t" << inst << "\n\thas a " << value << " in "
+               << pos << " position."
+               << "\n\n";
         return true;
       }
     }
   }
   return false;
-
 }
-
-
-
 
 bool runOnBasicBlock(BasicBlock &B) {
 
 
-	for (auto &inst : B)
-  {
+  for (auto &inst : B) {
 
     BinaryOperator *op = dyn_cast<BinaryOperator>(&inst);
 
-    if(not op)
-      continue;   
-    
-    switch(op->getOpcode()){
-      case BinaryOperator::Mul:
-        if(!algebraicIdentity(inst, MUL))
-          strenghtReduction(inst,MUL);
+    if (not op)
+      continue;
 
+    switch (op->getOpcode()) {
+      case BinaryOperator::Mul:
+        if (!algebraicIdentity(inst, MUL) && !strenghtReduction(inst, MUL))
+          advStrenghtReduction(inst);
         break;
       case (BinaryOperator::Add):
-        algebraicIdentity(inst,ADD);
+        algebraicIdentity(inst, ADD);
         break;
 
+      case (BinaryOperator::UDiv):
       case (BinaryOperator::SDiv):
-        strenghtReduction(inst,DIV);
+        strenghtReduction(inst, DIV);
         break;
 
       default:
 
         break;
-    } 
-    
-    
-    
-     
-	 }
+    }
+  }
   return true;
 }
-
 
 bool runOnFunction(Function &F) {
   bool Transformed = false;
@@ -131,13 +156,10 @@ bool runOnFunction(Function &F) {
   return Transformed;
 }
 
-
-PreservedAnalyses LocalOpts::run(Module &M,
-                                      ModuleAnalysisManager &AM) {
+PreservedAnalyses LocalOpts::run(Module &M, ModuleAnalysisManager &AM) {
   for (auto Fiter = M.begin(); Fiter != M.end(); ++Fiter)
     if (runOnFunction(*Fiter))
       return PreservedAnalyses::none();
-  
+
   return PreservedAnalyses::all();
 }
-
