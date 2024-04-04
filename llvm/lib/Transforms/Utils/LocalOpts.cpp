@@ -12,6 +12,9 @@
 
 using namespace llvm;
 
+// clang -emit-llvm -S -c file.c .o file.ll
+// opt
+
 enum opType { MUL, ADD, DIV, SUB };
 
 bool strenghtReduction(Instruction &inst, opType opT) {
@@ -38,8 +41,8 @@ bool strenghtReduction(Instruction &inst, opType opT) {
 
         shiftInst->insertAfter(&inst);
         inst.replaceAllUsesWith(shiftInst);
-        outs() << "Strength Reduction\n\tInstruction:\n\t\t" << inst << "\n\tReplaced with:\n\t\t"
-               << *shiftInst << "\n\n";
+        outs() << "Strength Reduction\n\tInstruction:\n\t\t" << inst
+               << "\n\tReplaced with:\n\t\t" << *shiftInst << "\n\n";
         return true;
       }
     }
@@ -47,7 +50,7 @@ bool strenghtReduction(Instruction &inst, opType opT) {
   return false;
 }
 
-bool advStrenghtReduction(Instruction &inst){
+bool advStrenghtReduction(Instruction &inst) {
   int pos = 0;
 
   for (auto operand = inst.op_begin(); operand != inst.op_end();
@@ -61,31 +64,30 @@ bool advStrenghtReduction(Instruction &inst){
       */
       Instruction::BinaryOps sumType;
       int shift_count = 0;
-      
-      if ((value+1).isPowerOf2()) {
-        shift_count = (value+1).exactLogBase2();
+
+      if ((value + 1).isPowerOf2()) {
+        shift_count = (value + 1).exactLogBase2();
         sumType = Instruction::Sub;
-      }else if ((value-1).isPowerOf2()){
-        shift_count = (value-1).exactLogBase2();
+      } else if ((value - 1).isPowerOf2()) {
+        shift_count = (value - 1).exactLogBase2();
         sumType = Instruction::Add;
-      }
-      else
+      } else
         continue;
 
       Instruction *shiftInst =
-            BinaryOperator::Create(BinaryOperator::Shl, inst.getOperand(!pos),
-                                   ConstantInt::get(C->getType(), shift_count));
+          BinaryOperator::Create(BinaryOperator::Shl, inst.getOperand(!pos),
+                                 ConstantInt::get(C->getType(), shift_count));
 
-      Instruction *sumInst = 
-            BinaryOperator::Create(sumType, inst.getOperand(!pos),
-                                   shiftInst);                    
-      
+      Instruction *sumInst =
+          BinaryOperator::Create(sumType, inst.getOperand(!pos), shiftInst);
+
       shiftInst->insertAfter(&inst);
       sumInst->insertAfter(shiftInst);
       inst.replaceAllUsesWith(sumInst);
 
-        outs() << "Advanced Strength Reduction\n\tInstruction:\n\t\t" << inst << "\n\tReplaced with:\n\t\t"
-               << *shiftInst << " and " << *sumInst << "\n\n";
+      outs() << "Advanced Strength Reduction\n\tInstruction:\n\t\t" << inst
+             << "\n\tReplaced with:\n\t\t" << *shiftInst << " and " << *sumInst
+             << "\n\n";
       return true;
     }
   }
@@ -102,8 +104,8 @@ bool algebraicIdentity(Instruction &inst, opType opT) {
 
       if ((value.isZero() && opT == ADD) || (value.isOne() && opT == MUL)) {
         inst.replaceAllUsesWith(inst.getOperand(!pos));
-        outs() << "Algebraic Identity\n\tInstruction:\n\t" << inst << "\n\thas a " << value << " in "
-               << pos << " position."
+        outs() << "Algebraic Identity\n\tInstruction:\n\t" << inst
+               << "\n\thas a " << value << " in " << pos << " position."
                << "\n\n";
         return true;
       }
@@ -112,47 +114,48 @@ bool algebraicIdentity(Instruction &inst, opType opT) {
   return false;
 }
 
-bool multiInstOpt(Instruction &inst, opType opT){
+bool multiInstOpt(Instruction &inst, opType opT) {
   int pos = 0;
-
-  for (auto operandUser = inst.op_begin(); operandUser != inst.op_end(); operandUser++, pos++){
-    
+  for (auto operandUser = inst.op_begin(); operandUser != inst.op_end();
+       operandUser++, pos++) {
     ConstantInt *CUser = dyn_cast<ConstantInt>(operandUser);
-    
+
     if (CUser) {
-      
+
       APInt valueToFind = CUser->getValue();
-      Instruction::BinaryOps opToFind;
+      Instruction::BinaryOps opToFind =
+          opT == SUB ? Instruction::Add : Instruction::Sub;
 
-      if(opT == SUB)
-        opToFind = Instruction::Add;
-      else
-        opToFind = Instruction::Sub;
 
-      for (auto Iter = inst.user_begin(); Iter != inst.user_end(); ++Iter){ 
-        
-        User *instUser = *Iter;
+      for (auto iter = inst.user_begin(); iter != inst.user_end(); ++iter) {
+
+        User *instUser = *iter;
         BinaryOperator *opUsee = dyn_cast<BinaryOperator>(instUser);
-        
-        if(not opUsee)
+
+        if (not opUsee)
           continue;
 
-        for(auto operandUsee = instUser->op_begin(); operandUsee != instUser->op_end(); operandUsee++){
-            ConstantInt *CUsee = dyn_cast<ConstantInt>(operandUsee);
-            if (CUsee && opUsee->getOpcode() == opToFind && CUsee->getValue() == valueToFind){
-    
-               outs() << "Multi-Instruction Optimization\n\t"
-                      << inst << " and " << *instUser << "\n ";
-               instUser->replaceAllUsesWith(inst.getOperand(!pos));
-               return true;
-            }
+        for (auto operandUsee = instUser->op_begin();
+             operandUsee != instUser->op_end(); operandUsee++) {
+          ConstantInt *CUsee = dyn_cast<ConstantInt>(operandUsee);
+          if (CUsee && opUsee->getOpcode() == opToFind &&
+              CUsee->getValue() == valueToFind) {
+
+            outs() << "Multi-Instruction Optimization\n\t" << inst << " and "
+                   << *instUser << "\n ";
+            instUser->replaceAllUsesWith(inst.getOperand(!pos));
+
+            return true;
+          }
         }
       }
     }
   }
+  return false;
 }
 
 bool runOnBasicBlock(BasicBlock &B) {
+
   for (auto &inst : B) {
 
     BinaryOperator *op = dyn_cast<BinaryOperator>(&inst);
@@ -161,27 +164,27 @@ bool runOnBasicBlock(BasicBlock &B) {
       continue;
 
     switch (op->getOpcode()) {
-      case BinaryOperator::Mul:
-        if (!algebraicIdentity(inst, MUL) && !strenghtReduction(inst, MUL))
-          advStrenghtReduction(inst);
-        break;
-      case (BinaryOperator::Add):
-        if(!algebraicIdentity(inst, ADD))
-          multiInstOpt(inst, ADD);
-        break;
+    case BinaryOperator::Mul:
+      if (!algebraicIdentity(inst, MUL) && !strenghtReduction(inst, MUL))
+        advStrenghtReduction(inst);
+      break;
+    case BinaryOperator::Add:
+      if (!algebraicIdentity(inst, ADD))
+        multiInstOpt(inst, ADD);
+      break;
 
-      case (BinaryOperator::Sub):
-        multiInstOpt(inst, SUB);
-        break;
+    case BinaryOperator::Sub:
+      multiInstOpt(inst, SUB);
+      break;
 
-      case (BinaryOperator::UDiv):
-      case (BinaryOperator::SDiv):
-        strenghtReduction(inst, DIV);
-        break;
+    case (BinaryOperator::UDiv):
+    case (BinaryOperator::SDiv):
+      strenghtReduction(inst, DIV);
+      break;
 
-      default:
+    default:
 
-        break;
+      break;
     }
   }
   return true;
