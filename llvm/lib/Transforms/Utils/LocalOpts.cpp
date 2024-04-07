@@ -71,7 +71,9 @@ bool advStrenghtReduction(Instruction &inst) {
       APInt value = C->getValue();
       Instruction::BinaryOps sumType;
       int shift_count = 0;
-
+      
+      //Check if the costant is +- 1 a power of 2. 
+      //If c-1 is a power of 2 the instruction added will be a add, otherwise a sub. 
       if ((value + 1).isPowerOf2()) {
         shift_count = (value + 1).exactLogBase2();
         sumType = Instruction::Sub;
@@ -113,7 +115,7 @@ bool algebraicIdentity(Instruction &inst, opType opT) {
     ConstantInt *C = dyn_cast<ConstantInt>(operand);
     if (C) {
       APInt value = C->getValue();
-
+      //Check if we are looking for an Mul or Add Algebraic Identity
       if ((value.isZero() && opT == ADD) || (value.isOne() && opT == MUL)) {
         inst.replaceAllUsesWith(inst.getOperand(!pos));
         outs() << "Algebraic Identity\n\tInstruction:\n\t" << inst
