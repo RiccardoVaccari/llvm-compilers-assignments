@@ -12,12 +12,15 @@
 
 using namespace llvm;
 
-// clang -emit-llvm -S -c file.c .o file.ll
-// opt
 
-enum opType { MUL, ADD, DIV, SUB };
+enum opType { MUL, ADD, DIV, SUB }; //Enum variable that contains the operation type. 
+                                    //Useful when optimization steps are called. 
 
 bool strenghtReduction(Instruction &inst, opType opT) {
+  /*
+  Strenght Reduction
+    x * 4 = x << 2
+  */
   int pos = 0;
 
   for (auto operand = inst.op_begin(); operand != inst.op_end();
@@ -53,6 +56,12 @@ bool strenghtReduction(Instruction &inst, opType opT) {
 }
 
 bool advStrenghtReduction(Instruction &inst) {
+  /*
+    Advanced Strenght Reduction:
+      x * 15 = 15 * x = (x << 4) - x
+      or
+      x * 17 = 17 * x = (x << 4) + x
+  */
   int pos = 0;
 
   for (auto operand = inst.op_begin(); operand != inst.op_end();
@@ -60,10 +69,6 @@ bool advStrenghtReduction(Instruction &inst) {
     ConstantInt *C = dyn_cast<ConstantInt>(operand);
     if (C) {
       APInt value = C->getValue();
-      /*
-      x * 15 = 15 * x = (x << 4) - x
-      x * 17 = 17 * x = (x << 4) + x
-      */
       Instruction::BinaryOps sumType;
       int shift_count = 0;
 
@@ -97,6 +102,11 @@ bool advStrenghtReduction(Instruction &inst) {
 }
 
 bool algebraicIdentity(Instruction &inst, opType opT) {
+  /*
+    Algebraic Identity
+    x + 0 = 0 + x = x
+    x * 1 = 1 * x = x
+  */
   int pos = 0;
   for (auto operand = inst.op_begin(); operand != inst.op_end();
        operand++, pos++) {
@@ -117,6 +127,9 @@ bool algebraicIdentity(Instruction &inst, opType opT) {
 }
 
 bool multiInstOpt(Instruction &inst, opType opT) {
+  /*
+  a = b + 1; c = a - 1 so c = b 
+  */
   int pos = 0;
   for (auto operandUser = inst.op_begin(); operandUser != inst.op_end();
        operandUser++, pos++) {
@@ -156,7 +169,9 @@ bool multiInstOpt(Instruction &inst, opType opT) {
 }
 
 bool runOnBasicBlock(BasicBlock &B) {
-
+  /*
+    Try applying the various optimizazions (based on the type of operation) whenever a binary operator is found
+  */
   for (auto &inst : B) {
     BinaryOperator *op = dyn_cast<BinaryOperator>(&inst);
 
@@ -186,7 +201,9 @@ bool runOnBasicBlock(BasicBlock &B) {
       break;
     }
   }
-
+  /*
+    Dead Code Elimination (attempt)
+  */
   for(auto instItr = B.begin(); instItr != B.end();){
     BinaryOperator *op = dyn_cast<BinaryOperator>(instItr);
     if(op and instItr->hasNUses(0))
