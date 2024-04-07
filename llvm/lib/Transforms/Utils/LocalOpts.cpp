@@ -32,8 +32,10 @@ bool strenghtReduction(Instruction &inst, opType opT) {
 
         if (opT == MUL)
           shiftT = Instruction::Shl;
-        else
+        else if (pos == 1)
           shiftT = Instruction::LShr;
+        else 
+          return false;
 
         Instruction *shiftInst =
             BinaryOperator::Create(shiftT, inst.getOperand(!pos),
@@ -126,7 +128,6 @@ bool multiInstOpt(Instruction &inst, opType opT) {
       Instruction::BinaryOps opToFind =
           opT == SUB ? Instruction::Add : Instruction::Sub;
 
-
       for (auto iter = inst.user_begin(); iter != inst.user_end(); ++iter) {
 
         User *instUser = *iter;
@@ -157,7 +158,6 @@ bool multiInstOpt(Instruction &inst, opType opT) {
 bool runOnBasicBlock(BasicBlock &B) {
 
   for (auto &inst : B) {
-
     BinaryOperator *op = dyn_cast<BinaryOperator>(&inst);
 
     if (not op)
@@ -165,7 +165,7 @@ bool runOnBasicBlock(BasicBlock &B) {
 
     switch (op->getOpcode()) {
     case BinaryOperator::Mul:
-      if (!algebraicIdentity(inst, MUL) && !strenghtReduction(inst, MUL))
+      if (!algebraicIdentity(inst, MUL) and !strenghtReduction(inst, MUL))
         advStrenghtReduction(inst);
       break;
     case BinaryOperator::Add:
@@ -183,10 +183,19 @@ bool runOnBasicBlock(BasicBlock &B) {
       break;
 
     default:
-
       break;
     }
   }
+
+  for(auto instItr = B.begin(); instItr != B.end();){
+    BinaryOperator *op = dyn_cast<BinaryOperator>(instItr);
+    if(op and instItr->hasNUses(0))
+      instItr = instItr->eraseFromParent();
+    else
+      instItr++;
+  }
+
+
   return true;
 }
 
