@@ -1,5 +1,7 @@
 *
 
+!**/LoopWalk.cpp
+!**/LoopWalk.h
 !**/LocalOpts.cpp
 !**/Localopts.h
 !**/PassRegistry.def
