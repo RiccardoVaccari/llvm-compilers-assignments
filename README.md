@@ -16,4 +16,5 @@ Un operando è loop-invariant quando:
   - è un argomento della funzione;
   - la sua reaching definition non è contenuta nel loop;
   - la sua reaching definition è loop-invariant.
+
 È quindi possibile utilizzare un algoritmo ricorsivo per eseguire il controllo di loop-invariant su un'istruzione.
