@@ -1,11 +1,19 @@
-Il primo assignment consiste nell'implementare 3 passi LLVM che realizzano le 3 ottimizzazioni locali:
-1. **Algebraic Identity**
-- $` x + 0 = 0 + x = x `$
-- $` x \times 1 = 1 \times x = x `$ 
+## Descrizione terzo assignment
+Il terzo assignment consiste nell'implementare un passo di Loop Invariant Code Motion.
 
-2. **Strength Reduction**
-- $` 15 \times x = x \times 15 \Rightarrow (x \ll 4) - x `$ 
-- $` y = x / 8 \Rightarrow y = x \gg 3 `$ 
+Risulta utile suddividere il passo in sottopassi:
+1. Trovare le istruzioni loop-invariant
+2. Controllare che la definizione domina gli usi (sottointeso in SSA)
+3. Dopodiché si hanno due possbilità:
+   1. l'istruzione domina le uscite
+   2. l'istruzione non ha usi dopo il loop
+4. Se è soddisfatta una delle due condizioni allora l'istruzione può essere spostata in fondo al preheader
 
-3. **Multi-Instruction Optimization** 
-- $` a = b + 1, c = a - 1 \Rightarrow a = b + 1, c = b `$
+### Quando un'istruzione è loop-invariant?
+Possiamo dire che un'istruzione è loop-invariant se entrambi gli operandi sono loop-invariant.
+Un operando è loop-invariant quando:
+  - è una costante;
+  - è un argomento della funzione;
+  - la sua reaching definition non è contenuta nel loop;
+  - la sua reaching definition è loop-invariant.
+È quindi possibile utilizzare un algoritmo ricorsivo per eseguire il controllo di loop-invariant su un'istruzione.
