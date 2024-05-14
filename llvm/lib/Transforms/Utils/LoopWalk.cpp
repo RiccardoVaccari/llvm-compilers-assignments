@@ -69,15 +69,6 @@ PreservedAnalyses LoopWalk::run(Loop &L, LoopAnalysisManager &LAM,
   BasicBlock *PreHeader = L.getLoopPreheader();
   Instruction &FinalInst = PreHeader->back();
 
-  // BasicBlock *head = L.getHeader();
-  // Function *F = head->getParent();
-
-  // outs() << "********** CFG **********\n";
-  // for (auto iter = F->begin(); iter != F->end(); iter++) {
-  //   BasicBlock &BB = *iter;
-  //   outs() << BB << "\n";
-  // }
-
   std::set<BasicBlock *> LoopExitBB;
   std::set<Instruction *> InstructionsLICM;
 
@@ -90,22 +81,23 @@ PreservedAnalyses LoopWalk::run(Loop &L, LoopAnalysisManager &LAM,
       if (!L.contains(Succ))
         LoopExitBB.insert(BB);
 
-    // BB->print(outs());
-    // outs() << "\n------------------------------------------\n";
 
     // Find the Loop Invariant instructions
     for (auto II = BB->begin(); II != BB->end(); II++) {
       Instruction &Inst = *II;
-      if (isInstructionLoopInvariant(Inst, L)){// and dominatesAllExits(Inst, LoopExitBB, LAR.DT)) {
 
+      // Check if the instruction is loop invariant
+      if (isInstructionLoopInvariant(Inst, L)){
         outs() << "LOOP INVARIANT -> ";
         Inst.print(outs());
 
+        // Check if instruction dominates all exits
         if (dominatesAllExits(Inst, LoopExitBB, LAR.DT)){
           InstructionsLICM.insert(&Inst);
           outs() << "\t[ DOMINA LE USCITE ]";
         }
 
+        // Check if instruction isn't used after the loop
         if (isLoopDead(Inst, L)) {
           InstructionsLICM.insert(&Inst);
           outs() << "\t[ DEAD LOOP ]";
@@ -116,6 +108,7 @@ PreservedAnalyses LoopWalk::run(Loop &L, LoopAnalysisManager &LAM,
     }
   }
 
+  // Move the instructions in the preheader
   for (Instruction *Inst : InstructionsLICM) {
     Inst->removeFromParent();
     Inst->insertBefore(&FinalInst);
