@@ -1,4 +1,4 @@
-#include "llvm/Transforms/Utils/LoopWalk.h"
+#include "llvm/Transforms/Utils/LoopInvariantCodeMotion.h"
 #include <set>
 
 using namespace llvm;
@@ -36,14 +36,9 @@ bool isInstructionLoopInvariant(Instruction &Inst, Loop &L) {
 bool dominatesAllExits(Instruction &Inst, std::set<BasicBlock *> LoopExitBB,
                        DominatorTree &DT) {
 
-  for (BasicBlock *BB : LoopExitBB) {
-    // if (BB == Inst.getParent())
-    //   continue;
-
+  for (BasicBlock *BB : LoopExitBB) 
     if (!DT.dominates(Inst.getParent(), BB))
       return false;
-  }
-
   return true;
 }
 
@@ -56,7 +51,7 @@ bool isLoopDead(Instruction &Inst, Loop &L) {
   return true;
 }
 
-PreservedAnalyses LoopWalk::run(Loop &L, LoopAnalysisManager &LAM,
+PreservedAnalyses LoopInvariantCodeMotion::run(Loop &L, LoopAnalysisManager &LAM,
                                 LoopStandardAnalysisResults &LAR,
                                 LPMUpdater &LU) {
 

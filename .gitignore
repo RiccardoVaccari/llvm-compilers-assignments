@@ -1,7 +1,7 @@
 *
 
-!**/LoopWalk.cpp
-!**/LoopWalk.h
+!**/LoopInvariantCodeMotion.cpp
+!**/LoopInvariantCodeMotion.h
 !**/LocalOpts.cpp
 !**/Localopts.h
 !**/PassRegistry.def

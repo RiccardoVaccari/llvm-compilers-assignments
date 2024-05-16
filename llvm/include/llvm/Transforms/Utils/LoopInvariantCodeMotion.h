@@ -1,5 +1,5 @@
-#ifndef LLVM_TRANSFORMS_LOOPWALK_H
-#define LLVM_TRANSFORMS_LOOPWALK_H
+#ifndef LLVM_TRANSFORMS_LOOPINVARIANTCODEMOTION_H
+#define LLVM_TRANSFORMS_LOOPINVARIANTCODEMOTION_H
 
 #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/Transforms/Scalar/LoopPassManager.h"
@@ -7,7 +7,7 @@
 
 namespace llvm {
 
-class LoopWalk : public PassInfoMixin<LoopWalk> {
+class LoopInvariantCodeMotion : public PassInfoMixin<LoopInvariantCodeMotion> {
 public:
   PreservedAnalyses run(Loop &L, LoopAnalysisManager &LAM,
                         LoopStandardAnalysisResults &LAR, LPMUpdater &LU);
@@ -15,4 +15,4 @@ public:
 
 } // namespace llvm
 
-#endif // LLVM_TRANSFORMS_LOOPWALK_H
+#endif // LLVM_TRANSFORMS_LOOPINVARIANTCODEMOTION_H
