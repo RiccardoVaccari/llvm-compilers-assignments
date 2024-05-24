@@ -362,6 +362,7 @@ FUNCTION_PASS("kcfi", KCFIPass())
 FUNCTION_PASS("lcssa", LCSSAPass())
 FUNCTION_PASS("loop-data-prefetch", LoopDataPrefetchPass())
 FUNCTION_PASS("loop-load-elim", LoopLoadEliminationPass())
+FUNCTION_PASS("my-loop-fusion", LoopFusion())
 FUNCTION_PASS("loop-fusion", LoopFusePass())
 FUNCTION_PASS("loop-distribute", LoopDistributePass())
 FUNCTION_PASS("loop-versioning", LoopVersioningPass())
@@ -617,7 +618,6 @@ LOOP_PASS("guard-widening", GuardWideningPass())
 LOOP_PASS("loop-bound-split", LoopBoundSplitPass())
 LOOP_PASS("loop-reroll", LoopRerollPass())
 LOOP_PASS("loop-versioning-licm", LoopVersioningLICMPass())
-LOOP_PASS("my-licm", LoopInvariantCodeMotion())
 #undef LOOP_PASS
 
 #ifndef LOOP_PASS_WITH_PARAMS
