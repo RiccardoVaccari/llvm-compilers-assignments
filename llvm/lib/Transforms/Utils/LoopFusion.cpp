@@ -3,13 +3,8 @@
 
 using namespace llvm;
 
-bool areControlFlowEquivalent(BasicBlock *BB0, BasicBlock *BB1, Function &F,
-                              FunctionAnalysisManager &AM) {
-
-  DominatorTree &DT = AM.getResult<DominatorTreeAnalysis>(F);
-  PostDominatorTree &PDT = AM.getResult<PostDominatorTreeAnalysis>(F);
-
-  return (DT.dominates(BB0, BB1) && PDT.dominates(BB1, BB0));
+bool areControlFlowEquivalent(BasicBlock *BB0, BasicBlock *BB1, DominatorTree &DT,PostDominatorTree &PDT) {
+  return BB0 == BB1 or (DT.dominates(BB0, BB1) && PDT.dominates(BB1, BB0));
 }
 
 BasicBlock *getGuard(Loop *L) {
@@ -41,8 +36,19 @@ bool areAdjacent(Loop *L1, Loop *L2) {
   }
 }
 
+const SCEV* getTripCount(Loop *L, ScalarEvolution &SE){
+  return SE.getTripCountFromExitCount(SE.getExitCount(L, L->getExitingBlock()));
+}
+
+bool isSameTripCount(Loop *L1, Loop *L2, ScalarEvolution &SE){
+  return getTripCount(L1, SE) == getTripCount(L2, SE);
+}
+
 PreservedAnalyses LoopFusion::run(Function &F, FunctionAnalysisManager &AM) {
   LoopInfo &LI = AM.getResult<LoopAnalysis>(F);
+  DominatorTree &DT = AM.getResult<DominatorTreeAnalysis>(F);
+  PostDominatorTree &PDT = AM.getResult<PostDominatorTreeAnalysis>(F);
+  ScalarEvolution &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
 
   std::set<Loop *> topLevelLoops;
 
@@ -59,8 +65,10 @@ PreservedAnalyses LoopFusion::run(Function &F, FunctionAnalysisManager &AM) {
       outs() << "L2 => ";
       L2->print(outs());
 
-      outs() << (areControlFlowEquivalent(getEntryBlock(L1), getEntryBlock(L2), F, AM) ? "Sono CFE\n" : "Non sono CFE\n");
+      outs() << (areControlFlowEquivalent(getEntryBlock(L1), getEntryBlock(L2), DT, PDT) ? "Sono CFE\n" : "Non sono CFE\n");
       outs() << (areAdjacent(L1, L2) ? "Sono adiacenti\n" : "Non sono adiacenti\n");
+      outs() << (isSameTripCount(L1, L2, SE) ? "Hanno lo stesso trip count\n" : "Non hanno lo stesso trip count\n");
+
       outs() << "------------------------------\n";
     }
   }

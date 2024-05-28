@@ -2,7 +2,7 @@
 #define LLVM_TRANSFORMS_LOOPFUSION_H
 
 #include "llvm/IR/PassManager.h"
-// #include "llvm/Analysis/LoopAnalysisManager.h"
+#include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/LoopInfo.h"
