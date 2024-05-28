@@ -3,22 +3,26 @@
 
 using namespace llvm;
 
-bool areControlFlowEquivalent(BasicBlock *BB1, BasicBlock *BB2, Function &F,
+bool areControlFlowEquivalent(BasicBlock *BB0, BasicBlock *BB1, Function &F,
                               FunctionAnalysisManager &AM) {
 
   DominatorTree &DT = AM.getResult<DominatorTreeAnalysis>(F);
   PostDominatorTree &PDT = AM.getResult<PostDominatorTreeAnalysis>(F);
 
-  return (DT.dominates(BB1, BB2)) and (PDT.dominates(BB2, BB1));
+  return (DT.dominates(BB0, BB1) && PDT.dominates(BB1, BB0));
 }
 
 BasicBlock *getGuard(Loop *L) {
   return L->getLoopPreheader()->getUniquePredecessor();
 }
 
+BasicBlock *getEntryBlock(Loop *L) {
+  return (L->isGuarded() ? getGuard(L) : L->getLoopPreheader());
+}
+
 bool areAdjacent(Loop *L1, Loop *L2) {
 
-  BasicBlock *BB2ToCheck = L2->isGuarded() ? getGuard(L2) : L2->getLoopPreheader();
+  BasicBlock *BB2ToCheck = getEntryBlock(L2);
 
   if (L1->isGuarded()) {
     // outs() << "Ha la guardia -> ";
@@ -29,7 +33,8 @@ bool areAdjacent(Loop *L1, Loop *L2) {
     if (!GuardBI || GuardBI->isUnconditional())
       return false;
 
-    return GuardBI->getSuccessor(1) == BB2ToCheck or GuardBI->getSuccessor(0) == BB2ToCheck;
+    return GuardBI->getSuccessor(1) == BB2ToCheck or
+           GuardBI->getSuccessor(0) == BB2ToCheck;
 
   } else {
     return L1->getExitBlock() == BB2ToCheck;
@@ -45,15 +50,17 @@ PreservedAnalyses LoopFusion::run(Function &F, FunctionAnalysisManager &AM) {
     topLevelLoops.insert(TopLevelLoop);
 
   for (auto *L1 : topLevelLoops) {
-    for (auto *L2: topLevelLoops){
-    	if (L1 == L2)
-    		continue;
-    	outs() << "L1 => ";
-    	L1->print(outs());
+    for (auto *L2 : topLevelLoops) {
+      if (L1 == L2)
+        continue;
+      outs() << "\nL1 => ";
+      L1->print(outs());
 
-    	outs() << "L2 => ";
-    	L2->print(outs());
-    	outs() << (areAdjacent(L1, L2) ? "Sono adiacenti\n" : "Non sono adiacenti\n");
+      outs() << "L2 => ";
+      L2->print(outs());
+
+      outs() << (areControlFlowEquivalent(getEntryBlock(L1), getEntryBlock(L2), F, AM) ? "Sono CFE\n" : "Non sono CFE\n");
+      outs() << (areAdjacent(L1, L2) ? "Sono adiacenti\n" : "Non sono adiacenti\n");
       outs() << "------------------------------\n";
     }
   }
