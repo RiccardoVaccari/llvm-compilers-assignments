@@ -4,6 +4,7 @@
 #include "llvm/IR/PassManager.h"
 // #include "llvm/Analysis/LoopAnalysisManager.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/LoopInfo.h"
 
 namespace llvm {
