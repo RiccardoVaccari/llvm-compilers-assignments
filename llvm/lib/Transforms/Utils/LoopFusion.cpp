@@ -41,7 +41,22 @@ const SCEV* getTripCount(Loop *L, ScalarEvolution &SE){
 }
 
 bool isSameTripCount(Loop *L1, Loop *L2, ScalarEvolution &SE){
+  if (!SE.hasLoopInvariantBackedgeTakenCount(L1) or !SE.hasLoopInvariantBackedgeTakenCount(L2))
+    return false;
   return getTripCount(L1, SE) == getTripCount(L2, SE);
+}
+
+bool isOkForFusion(Loop *L){
+  if (!L->getLoopPreheader() or !L->getHeader() or !L->getLoopLatch() or !L->getExitingBlock() or !L->getExitBlock())
+    return false;
+
+  if (!L->isLoopSimplifyForm())
+    return false;
+
+  // if (!L->isRotatedForm())
+  //   return false;
+
+  return true;
 }
 
 PreservedAnalyses LoopFusion::run(Function &F, FunctionAnalysisManager &AM) {
@@ -52,8 +67,12 @@ PreservedAnalyses LoopFusion::run(Function &F, FunctionAnalysisManager &AM) {
 
   std::set<Loop *> topLevelLoops;
 
-  for (auto *TopLevelLoop : LI)
-    topLevelLoops.insert(TopLevelLoop);
+  for (auto *TopLevelLoop : LI){
+    if (isOkForFusion(TopLevelLoop)){
+      topLevelLoops.insert(TopLevelLoop);
+      TopLevelLoop->print(outs());
+    }
+  }
 
   for (auto *L1 : topLevelLoops) {
     for (auto *L2 : topLevelLoops) {
