@@ -125,7 +125,6 @@ bool loopFuse(Loop *L1, Loop *L2, LoopInfo &LI){
   BasicBlock *L1Header = L1->getHeader();
   BasicBlock *L2Header = L2->getHeader();
 
-  BasicBlock *L1Body = getBody(L1);
   BasicBlock *L2Body = getBody(L2);
 
   BasicBlock *L1Latch = L1->getLoopLatch();
@@ -149,7 +148,9 @@ bool loopFuse(Loop *L1, Loop *L2, LoopInfo &LI){
   // To  
   //  L1Body 
   //    -> L2Body
-  L1Body->getTerminator()->replaceSuccessorWith(L1Latch, L2Body);
+  
+  for(auto *L1LatchPred : predecessors(L1Latch))
+    L1LatchPred->getTerminator()->replaceSuccessorWith(L1Latch, L2Body);
 
   // Change 
   //  L2Body 
@@ -157,7 +158,8 @@ bool loopFuse(Loop *L1, Loop *L2, LoopInfo &LI){
   // To  
   //  L2Body 
   //    -> L1Latch
-  L2Body->getTerminator()->replaceSuccessorWith(L2Latch, L1Latch);
+  for(auto *L2LatchPred : predecessors(L2Latch))
+    L2LatchPred->getTerminator()->replaceSuccessorWith(L2Latch, L1Latch);
 
   // Change 
   //  L2Header 
@@ -181,17 +183,16 @@ std::list<Loop *> getTopLevelLoops(LoopInfo &LI, bool verbose = false){
   std::list<Loop *> topLevelLoops;
 
   for (auto *TopLevelLoop : LI){
-    TopLevelLoop->print(outs());
-
-    if (isOkForFusion(TopLevelLoop)){
-      outs() << "OK\n";
+    if (isOkForFusion(TopLevelLoop))
       topLevelLoops.push_front(TopLevelLoop);
-    }
   }
 
-  for(auto L : topLevelLoops){
-    L->print(outs());
-  }
+  if(verbose)
+    for(auto L : topLevelLoops)
+      L->print(outs());
+    
+
+  
   return topLevelLoops;
 }
 
