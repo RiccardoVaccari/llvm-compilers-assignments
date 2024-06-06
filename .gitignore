@@ -1,5 +1,9 @@
 *
 
+!**/LoopInvariantCodeMotion.cpp
+!**/LoopInvariantCodeMotion.h
 !**/LocalOpts.cpp
 !**/Localopts.h
 !**/PassRegistry.def
+!**/LoopFusion.cpp
+!**/LoopFusion.h
