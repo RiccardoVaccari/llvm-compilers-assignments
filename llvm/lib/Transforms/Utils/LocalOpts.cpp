@@ -13,33 +13,39 @@
 using namespace llvm;
 
 
-enum opType { MUL, ADD, DIV, SUB }; //Enum variable that contains the operation type. 
-                                    //Useful when optimization steps are called. 
+enum opType { MUL, ADD, DIV, SUB };
 
 bool strenghtReduction(Instruction &inst, opType opT) {
   /*
-  Strenght Reduction
-    x * 4 = x << 2
+  Funzione che applica strenght reduction a mul e div
+  x * 16 = x << 4
+  y / 8 = x >> 3
   */
-  int pos = 0;
 
+  int pos = 0;
+  
   for (auto operand = inst.op_begin(); operand != inst.op_end();
        operand++, pos++) {
     ConstantInt *C = dyn_cast<ConstantInt>(operand);
     if (C) {
+      // Scorrendo gli operandi, se incontro una costante che
+      // è un multiplo di 2 allora potrò applicare la strenght reduction.
       APInt value = C->getValue();
       if (value.isPowerOf2()) {
+        // Il tot di shift corrisponderà al Log2 
         int shift_count = C->getValue().exactLogBase2();
 
         Instruction::BinaryOps shiftT;
 
+        // Definisco il tipo di operando che andrò a creare in base all'istruzione. 
         if (opT == MUL)
           shiftT = Instruction::Shl;
         else if (pos == 1)
-          shiftT = Instruction::LShr;
+          shiftT = Instruction::LShr; // ! [.......]
         else 
           return false;
 
+        // Creo l'istruzione di shift con l'operando opposto. 
         Instruction *shiftInst =
             BinaryOperator::Create(shiftT, inst.getOperand(!pos),
                                    ConstantInt::get(C->getType(), shift_count));
@@ -63,17 +69,22 @@ bool advStrenghtReduction(Instruction &inst) {
       x * 17 = 17 * x = (x << 4) + x
   */
   int pos = 0;
+  /*
+    Funzione che applica advanced strenght reduction a mul
+      x * 15 = 15 * x = (x << 4) - x
+      x * 17 = 17 * x = (x << 4) + x
+  */
 
   for (auto operand = inst.op_begin(); operand != inst.op_end();
        operand++, pos++) {
     ConstantInt *C = dyn_cast<ConstantInt>(operand);
     if (C) {
       APInt value = C->getValue();
+
       Instruction::BinaryOps sumType;
       int shift_count = 0;
-      
-      //Check if the costant is +- 1 a power of 2. 
-      //If c-1 is a power of 2 the instruction added will be a add, otherwise a sub. 
+      // Uguale alla strenght reductions solo che controllo che la costante sia un potenza di 2 +- 1
+
       if ((value + 1).isPowerOf2()) {
         shift_count = (value + 1).exactLogBase2();
         sumType = Instruction::Sub;
@@ -105,19 +116,25 @@ bool advStrenghtReduction(Instruction &inst) {
 
 bool algebraicIdentity(Instruction &inst, opType opT) {
   /*
-    Algebraic Identity
-    x + 0 = 0 + x = x
-    x * 1 = 1 * x = x
-  */
+
+  Funzione che applica l'algebraic identity sia per la mul che per la add. 
+  
   int pos = 0;
+
   for (auto operand = inst.op_begin(); operand != inst.op_end();
        operand++, pos++) {
     ConstantInt *C = dyn_cast<ConstantInt>(operand);
     if (C) {
       APInt value = C->getValue();
-      //Check if we are looking for an Mul or Add Algebraic Identity
+
+      // Scorrendo gli operandi dell'istruzione passata come parametro, se c'è una costante allora:
+      // - se la costante è 0 E l'istruzione su cui si sta iterando è una add
+      // oppure 
+      // - se la costante è 1 E l'istruzione su cui si sta iterando è una mul
+      // Allora potrò applicare l'algebraic identity. 
+
       if ((value.isZero() && opT == ADD) || (value.isOne() && opT == MUL)) {
-        inst.replaceAllUsesWith(inst.getOperand(!pos));
+        inst.replaceAllUsesWith(inst.getOperand(!pos)); // Rimpiazzo tutti gli usi dell'istruzione con l'altro operando
         outs() << "Algebraic Identity\n\tInstruction:\n\t" << inst
                << "\n\thas a " << value << " in " << pos << " position."
                << "\n\n";
@@ -130,24 +147,30 @@ bool algebraicIdentity(Instruction &inst, opType opT) {
 
 bool multiInstOpt(Instruction &inst, opType opT) {
   /*
-  a = b + 1; c = a - 1 so c = b 
+  Funzione che applica la multi inst optimization
+  𝑎 = 𝑏 + 1, 𝑐 = 𝑎 − 1  -> 𝑎 = 𝑏 + 1, 𝑐 = 𝑏
   */
   int pos = 0;
   for (auto operandUser = inst.op_begin(); operandUser != inst.op_end();
        operandUser++, pos++) {
     ConstantInt *CUser = dyn_cast<ConstantInt>(operandUser);
-
+    // Scorrendo gli operandi, se c'è una costante...
     if (CUser) {
-
+      
+      //... salvo il valore che dovrò trovare tra gli usi. 
       APInt valueToFind = CUser->getValue();
+
+      // E l'operatore che sarà l'opposto rispetto all'istruzione di partenza. 
       Instruction::BinaryOps opToFind =
           opT == SUB ? Instruction::Add : Instruction::Sub;
 
+      // Itero sugli usi
       for (auto iter = inst.user_begin(); iter != inst.user_end(); ++iter) {
-
+        
         User *instUser = *iter;
         BinaryOperator *opUsee = dyn_cast<BinaryOperator>(instUser);
-
+        // Se trovo una binary instruction che, tra gli operandi, ha il valore salvato precedenemtne
+        // ed ha come operatore quello salvato. 
         if (not opUsee)
           continue;
 
@@ -156,9 +179,12 @@ bool multiInstOpt(Instruction &inst, opType opT) {
           ConstantInt *CUsee = dyn_cast<ConstantInt>(operandUsee);
           if (CUsee && opUsee->getOpcode() == opToFind &&
               CUsee->getValue() == valueToFind) {
+            
+            // Allora potrò procedere con l'ottimizzazione. 
 
             outs() << "Multi-Instruction Optimization\n\t" << inst << " and "
                    << *instUser << "\n ";
+            // Rimpiazzo tutti gli usi con l'operatore opposto. 
             instUser->replaceAllUsesWith(inst.getOperand(!pos));
 
             return true;
