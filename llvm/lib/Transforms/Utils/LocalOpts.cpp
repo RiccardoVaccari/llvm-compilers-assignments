@@ -12,6 +12,7 @@
 
 using namespace llvm;
 
+
 enum opType { MUL, ADD, DIV, SUB };
 
 bool strenghtReduction(Instruction &inst, opType opT) {
@@ -20,7 +21,7 @@ bool strenghtReduction(Instruction &inst, opType opT) {
   x * 16 = x << 4
   y / 8 = x >> 3
   */
-  
+
   int pos = 0;
   
   for (auto operand = inst.op_begin(); operand != inst.op_end();
@@ -61,6 +62,12 @@ bool strenghtReduction(Instruction &inst, opType opT) {
 }
 
 bool advStrenghtReduction(Instruction &inst) {
+  /*
+    Advanced Strenght Reduction:
+      x * 15 = 15 * x = (x << 4) - x
+      or
+      x * 17 = 17 * x = (x << 4) + x
+  */
   int pos = 0;
   /*
     Funzione che applica advanced strenght reduction a mul
@@ -77,6 +84,7 @@ bool advStrenghtReduction(Instruction &inst) {
       Instruction::BinaryOps sumType;
       int shift_count = 0;
       // Uguale alla strenght reductions solo che controllo che la costante sia un potenza di 2 +- 1
+
       if ((value + 1).isPowerOf2()) {
         shift_count = (value + 1).exactLogBase2();
         sumType = Instruction::Sub;
@@ -108,8 +116,9 @@ bool advStrenghtReduction(Instruction &inst) {
 
 bool algebraicIdentity(Instruction &inst, opType opT) {
   /*
+
   Funzione che applica l'algebraic identity sia per la mul che per la add. 
-  */
+  
   int pos = 0;
 
   for (auto operand = inst.op_begin(); operand != inst.op_end();
@@ -117,11 +126,13 @@ bool algebraicIdentity(Instruction &inst, opType opT) {
     ConstantInt *C = dyn_cast<ConstantInt>(operand);
     if (C) {
       APInt value = C->getValue();
+
       // Scorrendo gli operandi dell'istruzione passata come parametro, se c'è una costante allora:
       // - se la costante è 0 E l'istruzione su cui si sta iterando è una add
       // oppure 
       // - se la costante è 1 E l'istruzione su cui si sta iterando è una mul
       // Allora potrò applicare l'algebraic identity. 
+
       if ((value.isZero() && opT == ADD) || (value.isOne() && opT == MUL)) {
         inst.replaceAllUsesWith(inst.getOperand(!pos)); // Rimpiazzo tutti gli usi dell'istruzione con l'altro operando
         outs() << "Algebraic Identity\n\tInstruction:\n\t" << inst
@@ -186,7 +197,9 @@ bool multiInstOpt(Instruction &inst, opType opT) {
 }
 
 bool runOnBasicBlock(BasicBlock &B) {
-
+  /*
+    Try applying the various optimizazions (based on the type of operation) whenever a binary operator is found
+  */
   for (auto &inst : B) {
     BinaryOperator *op = dyn_cast<BinaryOperator>(&inst);
 
@@ -216,7 +229,9 @@ bool runOnBasicBlock(BasicBlock &B) {
       break;
     }
   }
-
+  /*
+    Dead Code Elimination (attempt)
+  */
   for(auto instItr = B.begin(); instItr != B.end();){
     BinaryOperator *op = dyn_cast<BinaryOperator>(instItr);
     if(op and instItr->hasNUses(0))
