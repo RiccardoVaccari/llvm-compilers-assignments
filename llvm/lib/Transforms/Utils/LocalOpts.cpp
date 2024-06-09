@@ -40,8 +40,8 @@ bool strenghtReduction(Instruction &inst, opType opT) {
         // Definisco il tipo di operando che andrò a creare in base all'istruzione. 
         if (opT == MUL)
           shiftT = Instruction::Shl;
-        else if (pos == 1)
-          shiftT = Instruction::LShr; // ! [.......]
+        else if (opT == DIV)
+          shiftT = Instruction::LShr; 
         else 
           return false;
 
@@ -116,9 +116,8 @@ bool advStrenghtReduction(Instruction &inst) {
 
 bool algebraicIdentity(Instruction &inst, opType opT) {
   /*
-
   Funzione che applica l'algebraic identity sia per la mul che per la add. 
-  
+  */
   int pos = 0;
 
   for (auto operand = inst.op_begin(); operand != inst.op_end();
