@@ -199,29 +199,47 @@ bool runOnBasicBlock(BasicBlock &B) {
   /*
     Try applying the various optimizazions (based on the type of operation) whenever a binary operator is found
   */
+  bool modified = false;
+
   for (auto &inst : B) {
     BinaryOperator *op = dyn_cast<BinaryOperator>(&inst);
 
-    if (not op)
+    if (!op)
       continue;
 
     switch (op->getOpcode()) {
+
     case BinaryOperator::Mul:
-      if (!algebraicIdentity(inst, MUL) and !strenghtReduction(inst, MUL))
-        advStrenghtReduction(inst);
+      if (!algebraicIdentity(inst, MUL) && !strenghtReduction(inst, MUL)) {
+        if (advStrenghtReduction(inst)) {
+          modified = true;
+        }
+      } else {
+        modified = true;
+      }
       break;
+    
     case BinaryOperator::Add:
-      if (!algebraicIdentity(inst, ADD))
-        multiInstOpt(inst, ADD);
+      if (!algebraicIdentity(inst, ADD)) {
+        if (multiInstOpt(inst, ADD)) {
+          modified = true;
+        }
+      } else {
+        modified = true;
+      }
       break;
 
     case BinaryOperator::Sub:
-      multiInstOpt(inst, SUB);
+      if (multiInstOpt(inst, SUB)) {
+        modified = true;
+      }
       break;
 
     case (BinaryOperator::UDiv):
     case (BinaryOperator::SDiv):
-      strenghtReduction(inst, DIV);
+      if (strenghtReduction(inst, DIV)) {
+        modified = true;
+      }
       break;
 
     default:
@@ -240,7 +258,8 @@ bool runOnBasicBlock(BasicBlock &B) {
   }
 
 
-  return true;
+  outs() << (modified ? "" : "No Modifies\n");
+  return modified;
 }
 
 bool runOnFunction(Function &F) {
@@ -256,9 +275,10 @@ bool runOnFunction(Function &F) {
 }
 
 PreservedAnalyses LocalOpts::run(Module &M, ModuleAnalysisManager &AM) {
-  for (auto Fiter = M.begin(); Fiter != M.end(); ++Fiter)
-    if (runOnFunction(*Fiter))
-      return PreservedAnalyses::none();
+  bool Transformed = false;
 
-  return PreservedAnalyses::all();
+  for (auto Fiter = M.begin(); Fiter != M.end(); ++Fiter)
+    Transformed = Transformed | runOnFunction(*Fiter);
+
+  return Transformed ? PreservedAnalyses::none() : PreservedAnalyses::all();
 }
